@@ -1,0 +1,6 @@
+testincluderole_service:
+  - httpd
+  - chronyd
+  - cups
+
+testincluderole_service_state: started

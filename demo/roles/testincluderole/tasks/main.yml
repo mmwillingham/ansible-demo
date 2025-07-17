@@ -1,0 +1,7 @@
+---
+- name: Ensure services are stopped
+  notify: Restart httpd
+  loop: "{{ testincluderole_service }}"
+  ansible.builtin.service:
+    name: "{{ item }}"
+    state: "{{ testincluderole_service_state }}"

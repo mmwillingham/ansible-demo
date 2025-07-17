@@ -1,7 +1,6 @@
-- name: Ensure services are started                                                                                                                                                                        
+- name: Ensure services are started
   notify: Restart httpd
-  loop: "{{ service }}"
+  loop: "{{ testrole_service }}"
   ansible.builtin.service:
     name: "{{ item }}"
-    state: stopped
-
+    state: started

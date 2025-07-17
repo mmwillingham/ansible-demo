@@ -15,15 +15,18 @@
 #   call play/import/include - test variable differences
 
   tasks:
-    - name: Include role from a task
+    - name: Include role from a task - this stops the services
       tags: role2
+      vars:
+        testincluderole_service_state: started
+        testincluderole_service:
+          - httpd
+          - chronyd
+          - cups
       ansible.builtin.include_role:
-        name: testrole
-
-    - name: Output results of "{{ service }}"
-      tags: role2
-      ansible.builtin.debug:
-        var: service
+        name: testincluderole
+        apply:
+          tags: role2
 
     - name: Import role from a task
       tags: role3
@@ -33,11 +36,11 @@
     - name: Output results of "{{ service }}"
       tags: role3
       ansible.builtin.debug:
-        var: service
+        var: testrole_service
 
     - name: Display facts
       ansible.builtin.debug:
-        #var: ansible_facts
+        # var: ansible_facts
         msg: Uncomment above line to display facts
 
 # When
@@ -57,16 +60,17 @@
       notify: Restart httpd
       vars:
         service:
-          - httpd.service
+          - httpd
           - chronyd
           - cups
       loop: "{{ service }}"
       ansible.builtin.service:
         name: "{{ item }}"
-        #name: httpd
+        # name: httpd
         state: started
 # Block rescue Group and Users
     - name: Block and rescue
+      tags: users
       block:
         - name: Add group
           ansible.builtin.group:
@@ -85,7 +89,7 @@
           # variable is set to pwhash: mypassword123! and stored in ./group_vars/all/password.yml
           # The password to open is redhat123!
           # To run and have it ask for password to vault: $ ansible-navigator -m stdout run demo.yml --pae false --vault-id @prompt
-          # I also stored the password in ./vault-pass. This allows running without the prompt. 
+          # I also stored the password in ./vault-pass. This allows running without the prompt.
           # echo 'redhat123!' > ./vault-pass; chmod 0600 ./vault-pass
           # ansible-navigator -m stdout run demo.yml --vault-password-file=./vault-pass
             users:
@@ -98,8 +102,7 @@
             name: "{{ item.username }}"
             groups: "{{ item.group }}"
             password: "{{ pwhash | password_hash('sha512') }}"
-            #update_password: on_create
-            update_password: always
+            update_password: on_create
             state: present
       rescue:
         - name: Send a failure message
@@ -109,9 +112,11 @@
 # Register and print (and cat a file)
     - name: Cat a file
       register: cat_output
+      changed_when: false
       ansible.builtin.command: "cat /etc/hosts"
 
     - name: Display the cat results
+      changed_when: false
       ansible.builtin.debug:
         var: cat_output.stdout_lines
 
@@ -124,7 +129,7 @@
       when: (ansible_facts['distribution'] == "Fedora") or
             (ansible_facts['os_family'] == "RedHat")
       ansible.builtin.debug:
-        #var: ansible_facts['distribution']
+        # var: ansible_facts['distribution']
         msg: "distribution is {{ ansible_facts['distribution'] }} and os_family is {{ ansible_facts['os_family'] }}"
 
 # When AND
@@ -135,29 +140,29 @@
         - ansible_facts['distribution'] == "Fedora"
         - ansible_facts['os_family'] == "RedHat"
       ansible.builtin.debug:
-        #var: ansible_facts['distribution']
+        # var: ansible_facts['distribution']
         msg: "distribution is {{ ansible_facts['distribution'] }} and os_family is {{ ansible_facts['os_family'] }}"
 
 # When contains
-    - name: When is contains
+    - name: When is contains `names is contains('martin')`
       tags:
         - when
       vars:
         names:
           - martin
           - bo
-      when: "names is contains ('martin')"     # could also use: "'martin' in names"
+      when: "'martin' in names" # could also use "names is contains ('martin')"
       ansible.builtin.debug:
-        #var: ansible_facts['distribution']
+        # var: ansible_facts['distribution']
         msg: "names contains martin"
 
-# When not in
+# When not in (This task should be skipped.)
     - name: When not in    # This will be skipped because os_family is RedHat
       tags:
         - when
       when: "'Red' not in ansible_facts['os_family']"
       ansible.builtin.debug:
-        #var: ansible_facts['distribution']
+        # var: ansible_facts['distribution']
         msg: "os_family is {{ ansible_facts['os_family'] }}"
 
 # Difference in shell and command
@@ -167,22 +172,28 @@
       ansible.builtin.copy:
         content: "Hello Martin. This is your message of the day."
         dest: /etc/motd
+        owner: root
+        group: root
+        mode: "0644"
 
     - name: Command - simple
       tags:
         - command
       register: motd
+      changed_when: false
       ansible.builtin.command: cat /etc/motd
 
     - name: Command - ls -lart /tmp/tmp2
       tags:
         - command
+      changed_when: false
       register: ls_l_tmp
       ansible.builtin.command: ls -lart /tmp/tmp2
 
     - name: Command - ls -lart /tmp/tmp2 separate lines
       tags:
         - command
+      changed_when: false
       register: ls_l_tmp_newline
       ansible.builtin.command:
         cmd: ls -lart /tmp/tmp2
@@ -190,6 +201,7 @@
     - name: Command - ls -lart /tmp/tmp2 argv
       tags:
         - command
+      changed_when: false
       register: ls_l_tmp_argv
       ansible.builtin.command:
         argv:
@@ -201,109 +213,119 @@
       tags:
         - command
       ansible.builtin.debug:
-        msg: "motd: {{ motd.stdout_lines }} and {{ ls_l_tmp.stdout_lines }} ################ {{ ls_l_tmp_newline.stdout_lines }} #@#@#@E# {{ ls_l_tmp_argv.stdout_lines }}"
+        msg: "motd: {{ motd.stdout_lines }} and {{ ls_l_tmp.stdout_lines }} #MMW# {{ ls_l_tmp_newline.stdout_lines }} #MMW# {{ ls_l_tmp_argv.stdout_lines }}"
 
     - name: Shell command
       tags: command
       register: shell_motd
-      ansible.builtin.shell:
-        cmd: cat /etc/motd | grep -i Hello
-        
+      changed_when: false
+#      ansible.builtin.shell:
+#        cmd: cat /etc/motd | grep -i "Hello"   # This works, but gives a lint warning.
+      args:
+        executable: /bin/bash
+      ansible.builtin.shell: |
+        set -o pipefail
+        cat /etc/motd | grep -h Hello
+
     - name: Display shell results
       tags: command
       ansible.builtin.debug:
         var: "{{ shell_motd.stdout }}"
 
 # firewalld multiple services
-    - name: firewall block
+    - name: Firewall block
       tags: firewall
       block:
-      - name: Start firewall service
-        ansible.builtin.service:
-          name: firewalld
-          state: started
+        - name: Start firewall service
+          ansible.builtin.service:
+            name: firewalld
+            state: started
 
-      - name: Firewall with single service
-        ansible.posix.firewalld:
-          service: http
-          state: enabled
-          permanent: false
-          immediate: false
+        - name: Firewall with single service
+          ansible.posix.firewalld:
+            service: http
+            state: enabled
+            permanent: false
+            immediate: false
 
-      - name: Firewall with multiple services
-        vars:
-          service:
-            - http
-            - https
-            - ssh
-        loop: "{{ service }}"
-        ansible.posix.firewalld:
-          service: "{{ item }}"
-          state: enabled
-          permanent: false
-          immediate: false
+        - name: Firewall with multiple services
+          vars:
+            service:
+              - http
+              - https
+              - ssh
+          loop: "{{ service }}"
+          ansible.posix.firewalld:
+            service: "{{ item }}"
+            state: enabled
+            permanent: false
+            immediate: false
 
-      - name: Stop firewall service
-        ansible.builtin.service:
-          name: firewalld
-          state: stopped
+        - name: Stop firewall service
+          ansible.builtin.service:
+            name: firewalld
+            state: stopped
 
 # jinja2 with template
     - name: Jinja2 template block
       tags: j2
       block:
-      - name: Cat motd_j2
-        register: cat_motd_j2
-        ansible.builtin.command: cat /home/mwilling/git/ansible-demo/demo/motd.j2
+        - name: Cat motd_j2
+          changed_when: false
+          register: cat_motd_j2
+          ansible.builtin.command: cat /home/mwilling/git/ansible-demo/demo/motd.j2
 
-      - name: Display motd_j2
-        ansible.builtin.debug:
-          var: cat_motd_j2.stdout_lines
+        - name: Display motd_j2
+          ansible.builtin.debug:
+            var: cat_motd_j2.stdout_lines
 
-      - name: Create motd from jinja2
-        register: motd
-        ansible.builtin.template:
-          src: motd.j2
-          dest: /etc/motd
-          owner: root
-          group: root
-          mode: 0644
+        - name: Create motd from jinja2
+          register: motd
+          ansible.builtin.template:
+            src: motd.j2
+            dest: /etc/motd
+            owner: root
+            group: root
+            mode: "0644"
 
-      - name: Cat motd
-        register: motd
-        ansible.builtin.command: cat /etc/motd
+        - name: Cat motd
+          register: motd
+          changed_when: false
+          ansible.builtin.command: cat /etc/motd
 
-      - name: Display motd
-        ansible.builtin.debug:
-          var: motd.stdout_lines
+        - name: Display motd
+          ansible.builtin.debug:
+            var: motd.stdout_lines
 
 # lineinfile
-      - name: Lineinfile add
-        ansible.builtin.lineinfile:
-          path: /etc/motd
-          line: "Adding a new line"
+        - name: Lineinfile add
+          ansible.builtin.lineinfile:
+            path: /etc/motd
+            line: "Adding a new line"
 
-      - name: Cat motd after new lines
-        register: motd_lineinfile
-        ansible.builtin.command: cat /etc/motd
+        - name: Cat motd after new lines
+          register: motd_lineinfile
+          changed_when: false
+          ansible.builtin.command: cat /etc/motd
 
-      - name: Display motd after new lines
-        ansible.builtin.debug:
-          var: motd_lineinfile.stdout_lines
+        - name: Display motd after new lines
+          ansible.builtin.debug:
+            var: motd_lineinfile.stdout_lines
 
-      - name: Lineinfile replace
-        ansible.builtin.lineinfile:
-          path: /etc/motd
-          regex: "Adding a"                               # Notice it doesn't have to match the entire line
-          line: "Replacing the new line with this one."
+        - name: Lineinfile replace
+          ansible.builtin.lineinfile:
+            path: /etc/motd
+            regex: "Adding a"                               # Notice it doesn't have to match the entire line
+            line: "Replacing the new line with this one."
 
-      - name: Cat motd after new lines
-        register: motd_replace
-        ansible.builtin.command: cat /etc/motd
+        - name: Cat motd after new lines
+          register: motd_replace
+          changed_when: false
+          ansible.builtin.command: cat /etc/motd
 
-      - name: Display motd after new lines
-        ansible.builtin.debug:
-          var: motd_replace.stdout_lines
+        - name: Display motd after new lines
+          ansible.builtin.debug:
+            var: motd_replace.stdout_lines
 
 #   install public (redhat.rhel_system_roles)
 #   pre_tasks and post_tasks

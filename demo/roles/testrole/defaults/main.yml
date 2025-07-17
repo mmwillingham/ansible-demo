@@ -1,5 +1,5 @@
-service:
-  - httpd.service
+---
+testrole_service:
+  - httpd
   - chronyd
   - cups
-
