@@ -1,0 +1,5 @@
+service:
+  - httpd.service
+  - chronyd
+  - cups
+
