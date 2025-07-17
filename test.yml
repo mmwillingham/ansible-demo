@@ -1,0 +1,45 @@
+- name: cat files
+  hosts: all
+  tasks:
+    - name: cat /etc/hosts
+      ansible.builtin.command: cat /etc/hosts
+      register: results
+
+    - name: display results
+      ansible.builtin.debug:
+        msg: "{{ results.stdout_lines }}"
+
+- name: httpd as root
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Ensure httpd and firewalld are installed
+      loop:
+        - httpd
+        - firewalld
+      ansible.builtin.dnf:
+        name: "{{ item }}"
+        state: latest
+
+    - name: Ensure httpd is started and automatically
+      ansible.builtin.service:
+        name: httpd
+        state: started
+        enabled: true
+
+#    - name: Ensure firewall is started and automatically
+#      ansible.builtin.service:
+#        name: firewalld
+#        state: stopped
+#        enabled: false
+
+#    - name: Ensure firewall is configured
+#      loop:
+#        - https
+#        - http
+#        - ssh
+#      ansible.posix.firewalld:
+#        service:  "{{ item }}"
+#        state: enabled
+#        permanent: true
+#        immediate: true
