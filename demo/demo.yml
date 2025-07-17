@@ -345,31 +345,52 @@
           ansible.builtin.debug:
             msg: Rescue of jinja block
 
-# Play 2
-- name: Play 2
-  hosts: all
-  become: true
-
-  pre_tasks:
-    - name: Pre Task 1
-
-  roles:
-  # First install these public roles with:
-  #   ansible-galaxy collection install
-  #   
-    - name: redhat.rhel_system_roles.storage
-
-  post_tasks:
-    - name: Post Task 1
-
-#   install public (redhat.rhel_system_roles)
-#   pre_tasks and post_tasks
-#   Requirements file
-# Storage
-# Network
 # handlers
   handlers:
     - name: Restart httpd
       ansible.builtin.service:
         name: httpd
         state: restarted
+
+# Play 2 - rhel_system_roles
+- name: Play 2 - rhel_system_roles
+  hosts: all
+  become: true
+  vars:
+#    network_connections:
+#      - name: eth0
+#        type: ethernet
+#        ip:
+#          address:
+#            - 192.0.2.3/24
+
+    network_state:
+      dns-resolver:
+        config:
+          server:
+            - 1.1.1.3
+            - 1.0.0.3
+
+#  pre_tasks:
+#    - name: Pre Task 1
+
+  roles:
+    - role: redhat.rhel_system_roles.network
+      tags: system
+        
+#  post_tasks:
+#    - name: Post Task 1
+
+#   Requirements file
+# Storage
+# Network
+# Prerequisites for system roles
+  # First install these public roles with:
+  #  ansible-galaxy collection install redhat.rhel_system_roles
+  #     OR
+  #  https://console.redhat.com/ansible/automation-hub/repo/published/redhat/rhel_system_roles/docs/
+  #     OR
+  #  Download latest version here: https://console.redhat.com/ansible/automation-hub/repo/published/redhat/rhel_system_roles/
+  #  ansible-galaxy collection install ~/Downloads/redhat-rhel_system_roles-1.95.7.tar.gz
+  #  This will install in /home/mwilling/.ansible/collections/ansible_collections/redhat/rhel_system_roles
+
