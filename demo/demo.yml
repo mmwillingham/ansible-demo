@@ -76,6 +76,15 @@
           ansible.builtin.group:
             name: admin
             state: present
+            
+        - name: Add group to sudoers
+          ansible.builtin.lineinfile:
+            path: /etc/sudoers.d/admin
+            state: present
+            create: true
+            mode: 0400
+            line: '%admin ALL=(ALL) NOPASSWD: ALL'
+            validate: /usr/bin/visudo -cf %s
 # Loop multivalue and vault password
         - name: Display valus of pwhash
           ansible.builtin.debug:
@@ -104,6 +113,7 @@
             password: "{{ pwhash | password_hash('sha512') }}"
             update_password: on_create
             state: present
+
       rescue:
         - name: Send a failure message
           ansible.builtin.debug:
@@ -265,6 +275,10 @@
           ansible.builtin.service:
             name: firewalld
             state: stopped
+      rescue:
+        - name: Rescue of firewall block
+          ansible.builtin.debug:
+            msg: Rescue of firewall block
 
 # jinja2 with template
     - name: Jinja2 template block
@@ -326,6 +340,27 @@
         - name: Display motd after new lines
           ansible.builtin.debug:
             var: motd_replace.stdout_lines
+      rescue:
+        - name: Rescue of jinja block
+          ansible.builtin.debug:
+            msg: Rescue of jinja block
+
+# Play 2
+- name: Play 2
+  hosts: all
+  become: true
+
+  pre_tasks:
+    - name: Pre Task 1
+
+  roles:
+  # First install these public roles with:
+  #   ansible-galaxy collection install
+  #   
+    - name: redhat.rhel_system_roles.storage
+
+  post_tasks:
+    - name: Post Task 1
 
 #   install public (redhat.rhel_system_roles)
 #   pre_tasks and post_tasks
