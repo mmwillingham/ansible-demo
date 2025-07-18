@@ -76,13 +76,13 @@
           ansible.builtin.group:
             name: admin
             state: present
-            
+
         - name: Add group to sudoers
           ansible.builtin.lineinfile:
             path: /etc/sudoers.d/admin
             state: present
             create: true
-            mode: 0400
+            mode: "0400"
             line: '%admin ALL=(ALL) NOPASSWD: ALL'
             validate: /usr/bin/visudo -cf %s
 # Loop multivalue and vault password
@@ -110,7 +110,7 @@
           ansible.builtin.user:
             name: "{{ item.username }}"
             groups: "{{ item.group }}"
-            password: "{{ pwhash | password_hash('sha512') }}"
+            password: "{{ pwhash | password_hash('sha512') }}"    # Stored in group_vars/all/password.yml
             update_password: on_create
             state: present
 
@@ -345,6 +345,29 @@
           ansible.builtin.debug:
             msg: Rescue of jinja block
 
+# cron / at
+    - name: Cron job
+      tags: cron
+      ansible.builtin.cron:
+        name: "Date to tmp"
+        job: "date >> /tmp/date-from-ansible-cron.txt"
+        weekday: 0-6
+        minute: "*/1"
+        day: "1-31"
+        user: mmw
+        cron_file: mmw_date
+        state: absent
+
+    - name: At job
+      tags: cron
+      ansible.posix.at:
+        command: "cat /etc/motd > /tmp/motd.txt"
+        units: minutes
+        count: 1
+        state: absent
+
+# SELinux
+
 # handlers
   handlers:
     - name: Restart httpd
@@ -364,22 +387,135 @@
 #          address:
 #            - 192.0.2.3/24
 
-    network_state:
-      dns-resolver:
-        config:
-          server:
+# For passwords:
+#  Encrypt:   ansible-vault encrypt --vault-id ssid@.vault-pass group_vars/all/ssid.yml
+#  View:      ansible-vault view --vault-id ssid@.vault-pass group_vars/all/ssid.yml
+#             ssid_pwd: "4787576597"
+
+    network_connections:
+      - name: willingham88orbi
+        type: wireless
+        interface_name: wlp9s0
+        autoconnect: true
+        wireless:
+          ssid: willingham88orbi
+          key_mgmt: wpa-psk
+          # password: "47875765972"
+          password: "{{ ssid_pwd }}"
+        ip:
+          dhcp4: true
+          dns:
             - 1.1.1.3
             - 1.0.0.3
+#            - 1.1.1.1
+#            - 8.8.8.8
+        state: up
+        persistent_state: present
 
-#  pre_tasks:
-#    - name: Pre Task 1
+#    network_connections:
+#      - name: wlp9s0
+#        interface_name: wlp9s0
+#        type: wireless
+#        wireless:
+#          ssid: willingham88orbi
+#        802-11-wireless-security:
+#          key_mgmt: wpa-psk
+#          psk: "47875765972"
+#        ip:
+#          dns:
+#            - 1.1.1.3
+#            - 1.0.0.3
+#            - 8.8.8.8
+#        state: up
+#        persistent_state: present
+
+#    network_state:
+#      dns-resolver:
+#        config:
+#          server:
+#            - 1.1.1.3
+#            #- 1.0.0.3
+#            - 8.8.8.8
+
+  pre_tasks:
+    - name: Pre Task 1 - report dns entries
+      tags: network
+      register: network_device_show_dns
+      changed_when: false
+      ansible.builtin.command:
+        argv:
+          - nmcli
+          - --get-values
+          - ip4.dns
+          - device
+          - show
+
+    - name: Pre Task 2 - Get DNS from nmcli conn show
+      tags: network
+      register: network_conn_show_dns
+      changed_when: false
+      ansible.builtin.command:
+        argv:
+          - nmcli
+          - -f
+          - ipv4.dns
+          - con
+          - show
+          - willingham88orbi
+
+    - name: Display IPv4 DNS servers from device show
+      tags:
+        - network
+      ansible.builtin.debug:
+        msg: "IPv4 DNS Servers: {{ network_device_show_dns.stdout_lines }}"
+
+    - name: Display IPv4 DNS servers from conn show
+      tags:
+        - network
+      ansible.builtin.debug:
+        msg: "IPv4 DNS Servers: {{ network_conn_show_dns.stdout_lines }}"
 
   roles:
     - role: redhat.rhel_system_roles.network
-      tags: system
-        
-#  post_tasks:
-#    - name: Post Task 1
+      tags: network
+
+  post_tasks:
+    - name: Post Task 1 - report dns entries
+      tags: network
+      register: network_device_show_dns_post
+      changed_when: false
+      ansible.builtin.command:
+        argv:
+          - nmcli
+          - --get-values
+          - ip4.dns
+          - device
+          - show
+
+    - name: Post Task 2 - Get DNS from nmcli conn show
+      tags: network
+      register: network_conn_show_dns_post
+      changed_when: false
+      ansible.builtin.command:
+        argv:
+          - nmcli
+          - -f
+          - ipv4.dns
+          - con
+          - show
+          - willingham88orbi
+
+    - name: Display IPv4 DNS servers from device show (post task)
+      tags:
+        - network
+      ansible.builtin.debug:
+        msg: "IPv4 DNS Servers: {{ network_device_show_dns_post.stdout_lines }}"
+
+    - name: Display IPv4 DNS servers from conn show (post task)
+      tags:
+        - network
+      ansible.builtin.debug:
+        msg: "IPv4 DNS Servers: {{ network_conn_show_dns_post.stdout_lines }}"
 
 #   Requirements file
 # Storage
@@ -393,4 +529,3 @@
   #  Download latest version here: https://console.redhat.com/ansible/automation-hub/repo/published/redhat/rhel_system_roles/
   #  ansible-galaxy collection install ~/Downloads/redhat-rhel_system_roles-1.95.7.tar.gz
   #  This will install in /home/mwilling/.ansible/collections/ansible_collections/redhat/rhel_system_roles
-
