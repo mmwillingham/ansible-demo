@@ -1,0 +1,599 @@
+apiVersion: v1alpha1
+kind: AgentConfig
+metadata:
+  name: dc1-mg-ocp
+rendezvousIP: 10.209.48.11
+additionalNTPSources:
+  - 10.192.97.252
+hosts:
+  - hostname: dc1-mg-m-01.rtrpayments.internal               
+    role: master
+    interfaces:
+      - name: eth0
+        macAddress: 30:3E:A7:1A:A7:78
+      - name: eth1
+        macAddress: 40:A6:B7:D3:AC:F8
+      - name: eth2
+        macAddress: 30:3E:A7:1A:A7:7A
+      - name: eth3
+        macAddress: 40:A6:B7:D3:AC:FA
+    rootDeviceHints:
+      deviceName: /dev/sda
+    networkConfig:
+      interfaces:
+        - name: bond0 
+          type: bond 
+          state: up
+          ipv4:
+            enabled: true
+            address:
+            - ip: 10.209.48.11
+              prefix-length: 23
+            dhcp: false
+          ipv6:
+            enabled: false
+          link-aggregation:
+            mode: 802.3ad 
+            port:
+            - eth0
+            - eth1
+        - name: bond1
+          type: bond
+          state: up
+          ipv4:
+            enabled: true
+            address:
+            - ip: 10.192.65.11
+              prefix-length: 24
+            dhcp: false
+          ipv6:
+            enabled: false
+          link-aggregation:
+            mode: 802.3ad
+            port:
+              - eth2
+              - eth3
+      dns-resolver:
+        config:
+          server:
+            - 10.192.97.252
+            
+      routes:
+        config:
+          - destination: 0.0.0.0/0
+            next-hop-address: 10.209.48.1
+            next-hop-interface: bond0
+            table-id: 254
+
+          
+  - hostname: dc1-mg-m-02.rtrpayments.internal
+    role: master
+    interfaces:
+      - name: eth0
+        macAddress: 30:3E:A7:1A:A6:40
+      - name: eth1
+        macAddress: 40:A6:B7:D3:AD:1C
+      - name: eth2
+        macAddress: 30:3E:A7:1A:A6:42
+      - name: eth3
+        macAddress: 40:A6:B7:D3:AD:1E
+    rootDeviceHints:
+      deviceName: /dev/sda
+    networkConfig:
+      interfaces:
+        - name: bond0 
+          type: bond 
+          state: up
+          ipv4:
+            enabled: true
+            address:
+            - ip: 10.209.48.12
+              prefix-length: 23
+            dhcp: false
+          ipv6:
+            enabled: false
+          link-aggregation:
+            mode: 802.3ad 
+            port:
+            - eth0
+            - eth1
+        - name: bond1
+          type: bond
+          state: up
+          ipv4:
+            enabled: true
+            address:
+            - ip: 10.192.65.12
+              prefix-length: 24
+            dhcp: false
+          ipv6:
+            enabled: false
+          link-aggregation:
+            mode: 802.3ad
+            port:
+              - eth2
+              - eth3
+      dns-resolver:
+        config:
+          server:
+            - 10.192.97.252
+      routes:
+        config:
+          - destination: 0.0.0.0/0
+            next-hop-address: 10.209.48.1
+            next-hop-interface: bond0
+            table-id: 254
+
+
+  - hostname: dc1-mg-m-03.rtrpayments.internal
+    role: master
+    interfaces:
+      - name: eth0
+        macAddress: 30:3E:A7:1A:A8:D8
+      - name: eth1
+        macAddress: 40:A6:B7:D3:AD:FC
+      - name: eth2
+        macAddress: 30:3E:A7:1A:A8:DA
+      - name: eth3
+        macAddress: 40:A6:B7:D3:AD:FE
+    rootDeviceHints:
+      deviceName: /dev/sda
+    networkConfig:
+      interfaces:
+        - name: bond0 
+          type: bond 
+          state: up
+          ipv4:
+            enabled: true
+            address:
+            - ip: 10.209.48.13
+              prefix-length: 23
+            dhcp: false
+          ipv6:
+            enabled: false
+          link-aggregation:
+            mode: 802.3ad 
+            port:
+            - eth0
+            - eth1
+        - name: bond1
+          type: bond
+          state: up
+          ipv4:
+            enabled: true
+            address:
+            - ip: 10.192.65.13
+              prefix-length: 24
+            dhcp: false
+          ipv6:
+            enabled: false
+          link-aggregation:
+            mode: 802.3ad
+            port:
+              - eth2
+              - eth3
+      dns-resolver:
+        config:
+          server:
+            - 10.192.97.252
+      routes:
+        config:
+          - destination: 0.0.0.0/0
+            next-hop-address: 10.209.48.1
+            next-hop-interface: bond0
+            table-id: 254
+
+
+  - hostname: dc1-mg-i-01.rtrpayments.internal
+    role: worker
+    interfaces:
+      - name: eth0
+        macAddress: 30:3E:A7:1A:8B:08
+      - name: eth1
+        macAddress: 40:A6:B7:D3:B2:94
+      - name: eth2
+        macAddress: 30:3E:A7:1A:8B:0A
+      - name: eth3
+        macAddress: 40:A6:B7:D3:B2:96
+    rootDeviceHints:
+      deviceName: /dev/sda
+    networkConfig:
+      interfaces:
+        - name: bond0 
+          type: bond 
+          state: up
+          ipv4:
+            enabled: true
+            address:
+            - ip: 10.209.48.14
+              prefix-length: 23
+            dhcp: false
+          ipv6:
+            enabled: false
+          link-aggregation:
+            mode: 802.3ad 
+            port:
+            - eth0
+            - eth1
+        - name: bond1
+          type: bond
+          state: up
+          ipv4:
+            enabled: true
+            address:
+            - ip: 10.192.65.14
+              prefix-length: 24
+            dhcp: false
+          ipv6:
+            enabled: false
+          link-aggregation:
+            mode: 802.3ad
+            port:
+              - eth2
+              - eth3
+      dns-resolver:
+        config:
+          server:
+            - 10.192.97.252
+      routes:
+        config:
+          - destination: 0.0.0.0/0
+            next-hop-address: 10.209.48.1
+            next-hop-interface: bond0
+            table-id: 254
+
+
+  - hostname: dc1-mg-i-02.rtrpayments.internal
+    role: worker
+    interfaces:
+      - name: eth0
+        macAddress: 30:3E:A7:1A:A1:C8
+      - name: eth1
+        macAddress: 40:A6:B7:D3:AE:5C
+      - name: eth2
+        macAddress: 30:3E:A7:1A:A1:CA
+      - name: eth3
+        macAddress: 40:A6:B7:D3:AE:5E
+    rootDeviceHints:
+      deviceName: /dev/sda
+    networkConfig:
+      interfaces:
+        - name: bond0 
+          type: bond 
+          state: up
+          ipv4:
+            enabled: true
+            address:
+            - ip: 10.209.48.15
+              prefix-length: 23
+            dhcp: false
+          ipv6:
+            enabled: false
+          link-aggregation:
+            mode: 802.3ad 
+            port:
+            - eth0
+            - eth1
+        - name: bond1
+          type: bond
+          state: up
+          ipv4:
+            enabled: true
+            address:
+            - ip: 10.192.65.15
+              prefix-length: 24
+            dhcp: false
+          ipv6:
+            enabled: false
+          link-aggregation:
+            mode: 802.3ad
+            port:
+              - eth2
+              - eth3
+      dns-resolver:
+        config:
+          server:
+            - 10.192.97.252
+      routes:
+        config:
+          - destination: 0.0.0.0/0
+            next-hop-address: 10.209.48.1
+            next-hop-interface: bond0
+            table-id: 254
+
+
+  - hostname: dc1-mg-i-03.rtrpayments.internal
+    role: worker
+    interfaces:
+      - name: eth0
+        macAddress: 30:3E:A7:1A:90:38
+      - name: eth1
+        macAddress: 40:A6:B7:D3:B1:60
+      - name: eth2
+        macAddress: 30:3E:A7:1A:90:3A
+      - name: eth3
+        macAddress: 40:A6:B7:D3:B1:62
+    rootDeviceHints:
+      deviceName: /dev/sda
+    networkConfig:
+      interfaces:
+        - name: bond0 
+          type: bond 
+          state: up
+          ipv4:
+            enabled: true
+            address:
+            - ip: 10.209.48.16
+              prefix-length: 23
+            dhcp: false
+          ipv6:
+            enabled: false
+          link-aggregation:
+            mode: 802.3ad 
+            port:
+            - eth0
+            - eth1
+        - name: bond1
+          type: bond
+          state: up
+          ipv4:
+            enabled: true
+            address:
+            - ip: 10.192.65.16
+              prefix-length: 24
+            dhcp: false
+          ipv6:
+            enabled: false
+          link-aggregation:
+            mode: 802.3ad
+            port:
+              - eth2
+              - eth3
+      dns-resolver:
+        config:
+          server:
+            - 10.192.97.252
+      routes:
+        config:
+          - destination: 0.0.0.0/0
+            next-hop-address: 10.209.48.1
+            next-hop-interface: bond0
+            table-id: 254
+
+
+  - hostname: dc1-mg-w-01.rtrpayments.internal
+    role: worker
+    interfaces:
+      - name: eth0
+        macAddress: 30:3E:A7:1A:A9:28
+      - name: eth1
+        macAddress: 40:A6:B7:D3:AC:0C
+      - name: eth2
+        macAddress: 30:3E:A7:1A:A9:2A
+      - name: eth3
+        macAddress: 40:A6:B7:D3:AC:0E
+    rootDeviceHints:
+      deviceName: /dev/sda
+    networkConfig:
+      interfaces:
+        - name: bond0 
+          type: bond 
+          state: up
+          ipv4:
+            enabled: true
+            address:
+            - ip: 10.209.48.17
+              prefix-length: 23
+            dhcp: false
+          ipv6:
+            enabled: false
+          link-aggregation:
+            mode: 802.3ad 
+            port:
+            - eth0
+            - eth1
+        - name: bond1
+          type: bond
+          state: up
+          ipv4:
+            enabled: true
+            address:
+            - ip: 10.192.65.17
+              prefix-length: 24
+            dhcp: false
+          ipv6:
+            enabled: false
+          link-aggregation:
+            mode: 802.3ad
+            port:
+              - eth2
+              - eth3
+      dns-resolver:
+        config:
+          server:
+            - 10.192.97.252
+      routes:
+        config:
+          - destination: 0.0.0.0/0
+            next-hop-address: 10.209.48.1
+            next-hop-interface: bond0
+            table-id: 254
+
+
+  - hostname: dc1-mg-w-02.rtrpayments.internal
+    role: worker
+    interfaces:
+      - name: eth0
+        macAddress: 30:3E:A7:1A:A4:D0
+      - name: eth1
+        macAddress: 40:A6:B7:D3:AD:58
+      - name: eth2
+        macAddress: 30:3E:A7:1A:A4:D2
+      - name: eth3
+        macAddress: 40:A6:B7:D3:AD:5A
+    rootDeviceHints:
+      deviceName: /dev/sda
+    networkConfig:
+      interfaces:
+        - name: bond0 
+          type: bond 
+          state: up
+          ipv4:
+            enabled: true
+            address:
+            - ip: 10.209.48.18
+              prefix-length: 23
+            dhcp: false
+          ipv6:
+            enabled: false
+          link-aggregation:
+            mode: 802.3ad 
+            port:
+            - eth0
+            - eth1
+        - name: bond1
+          type: bond
+          state: up
+          ipv4:
+            enabled: true
+            address:
+            - ip: 10.192.65.18
+              prefix-length: 24
+            dhcp: false
+          ipv6:
+            enabled: false
+          link-aggregation:
+            mode: 802.3ad
+            port:
+              - eth2
+              - eth3
+      dns-resolver:
+        config:
+          server:
+            - 10.192.97.252
+      routes:
+        config:
+          - destination: 0.0.0.0/0
+            next-hop-address: 10.209.48.1
+            next-hop-interface: bond0
+            table-id: 254
+
+
+
+  - hostname: dc1-mg-w-03.rtrpayments.internal
+    role: worker
+    interfaces:
+      - name: eth0
+        macAddress: 30:3E:A7:1A:9C:00
+      - name: eth1
+        macAddress: 40:A6:B7:D3:AB:48
+      - name: eth2
+        macAddress: 30:3E:A7:1A:9C:02
+      - name: eth3
+        macAddress: 40:A6:B7:D3:AB:4A
+    rootDeviceHints:
+      deviceName: /dev/sda
+    networkConfig:
+      interfaces:
+        - name: bond0 
+          type: bond 
+          state: up
+          ipv4:
+            enabled: true
+            address:
+            - ip: 10.209.48.19
+              prefix-length: 23
+            dhcp: false
+          ipv6:
+            enabled: false
+          link-aggregation:
+            mode: 802.3ad 
+            port:
+            - eth0
+            - eth1
+        - name: bond1
+          type: bond
+          state: up
+          ipv4:
+            enabled: true
+            address:
+            - ip: 10.192.65.19
+              prefix-length: 24
+            dhcp: false
+          ipv6:
+            enabled: false
+          link-aggregation:
+            mode: 802.3ad
+            port:
+              - eth2
+              - eth3
+      dns-resolver:
+        config:
+          server:
+            - 10.192.97.252
+      routes:
+        config:
+          - destination: 0.0.0.0/0
+            next-hop-address: 10.209.48.1
+            next-hop-interface: bond0
+            table-id: 254
+
+
+  - hostname: dc1-mg-w-04.rtrpayments.internal
+    role: worker
+    interfaces:
+      - name: eth0
+        macAddress: 30:3E:A7:1A:A3:B8
+      - name: eth1
+        macAddress: 40:A6:B7:D3:AE:0C
+      - name: eth2
+        macAddress: 30:3E:A7:1A:A3:BA
+      - name: eth3
+        macAddress: 40:A6:B7:D3:AE:0E
+    rootDeviceHints:
+      deviceName: /dev/sda
+    networkConfig:
+      interfaces:
+        - name: bond0 
+          type: bond 
+          state: up
+          ipv4:
+            enabled: true
+            address:
+            - ip: 10.209.48.20
+              prefix-length: 23
+            dhcp: false
+          ipv6:
+            enabled: false
+          link-aggregation:
+            mode: 802.3ad 
+            port:
+            - eth0
+            - eth1
+        - name: bond1
+          type: bond
+          state: up
+          ipv4:
+            enabled: true
+            address:
+            - ip: 10.192.65.20
+              prefix-length: 24
+            dhcp: false
+          ipv6:
+            enabled: false
+          link-aggregation:
+            mode: 802.3ad
+            port:
+              - eth2
+              - eth3
+      dns-resolver:
+        config:
+          server:
+            - 10.192.97.252
+      routes:
+        config:
+          - destination: 0.0.0.0/0
+            next-hop-address: 10.209.48.1
+            next-hop-interface: bond0
+            table-id: 254
+

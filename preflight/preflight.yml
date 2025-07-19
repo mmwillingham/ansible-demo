@@ -1,0 +1,94 @@
+- name: Preflight checklist before installing OpenShift
+  hosts: localhost
+#  vars_files:
+#    - install-config.yaml
+#    - agent-config.yaml
+
+  tasks:
+    - name: Include variables from install-config.yaml
+      include_vars:
+        file: vars/install-config.yaml
+        name: ic
+
+    - name: Include variables from agent-config.yaml
+      include_vars:
+        file: vars/agent-config.yaml
+        name: ac
+
+    - name: Verify cluster name is same in both files
+      ansible.builtin.assert:
+        that: ic.metadata.name == ac.metadata.name
+        success_msg: "GOOD! {{ ic.metadata.name }} EQUALS {{ ac.metadata.name }}"
+        fail_msg: "BAD! {{ ic.metadata.name }} NOT EQUALS {{ ac.metadata.name }}"
+
+    - name: Verify IP ranges of cluster, machine, and service netword are different (only works for first items in array)
+      ignore_errors: true
+      ansible.builtin.assert:
+        that:
+          - ic.networking.clusterNetwork[0].cidr != ic.networking.machineNetwork[0].cidr
+          - ic.networking.clusterNetwork[0].cidr != ic.networking.serviceNetwork[0]
+          - ic.networking.machineNetwork[0].cidr != ic.networking.serviceNetwork[0]
+        success_msg: "GOOD! clusterNetwork: {{ ic.networking.clusterNetwork[0].cidr }} machineNetwork: {{ ic.networking.machineNetwork[0].cidr }} serviceNetwork: {{ ic.networking.serviceNetwork[0] }}"
+        fail_msg: "BAD! clusterNetwork: {{ ic.networking.clusterNetwork[0].cidr }} machineNetwork: {{ ic.networking.machineNetwork[0].cidr }} serviceNetwork: {{ ic.networking.serviceNetwork[0] }}"
+
+    - name: Verify rendezvousIP is IP of first interface of first node listed in agent-config
+      ignore_errors: true
+      ansible.builtin.assert:
+        that: ac.rendezvousIP == ac.hosts[0].networkConfig.interfaces[0].ipv4.address[0].ip
+        success_msg: "GOOD! {{ ac.rendezvousIP }} EQUALS {{ ac.hosts[0].networkConfig.interfaces[0].ipv4.address[0].ip }}"
+        fail_msg: "BAD!"
+
+    - name: Set a fact for node count
+      ignore_errors: true
+      ansible.builtin.set_fact:
+        ac_node_count: "{{ ac.hosts | length }}"
+
+    - name: Verify node count EQUALS master replicas plus worker replica
+      ignore_errors: true
+      vars:
+        ic_replica_count: "{{ (ic.controlPlane.replicas) + (ic.compute[0].replicas) }}"
+      ansible.builtin.assert: 
+        that: ac_node_count == ic_replica_count
+        success_msg: "GOOD! agent-config node count: {{ ac_node_count }}  EQUALS masters: {{ ic.controlPlane.replicas }} PLUS workers: {{ ic.compute[0].replicas }}"
+        fail_msg: "BAD! agent-config node count: {{ ac_node_count }}  NOT EQUALS masters: {{ ic.controlPlane.replicas }} PLUS workers: {{ ic.compute[0].replicas }}"
+
+    - name: Set a fact for master node count in agent-install
+      ignore_errors: true
+      ansible.builtin.set_fact:
+        ac_master_count: "{{ ac.hosts | selectattr('role', 'equalto', 'master') | list | length }}"
+
+    - name: Set a fact for worker replica count in agent-install
+      ignore_errors: true
+      ansible.builtin.set_fact:
+        ac_worker_count: "{{ ac.hosts | selectattr('role', 'equalto', 'worker') | list | length }}"
+
+#    - name: Display master and worker counts from agent-config
+#      ignore_errors: true
+#      ansible.builtin.debug:
+#        msg: "Counts from agent-config. Masters: {{ ac_master_count }} Workers: {{ ac_worker_count }}"
+
+    - name: Verify controlPlane replicas EQUALS count of master nodes in agent-config
+      ignore_errors: true
+      ansible.builtin.assert:
+        that: ic.controlPlane.replicas | int == ac_master_count | int
+        success_msg: "GOOD! install-config controlPlane replicas: {{ ic.controlPlane.replicas }} EQUALS agent-config master count: {{ ac_master_count }}"
+        fail_msg: "BAD! install-config controlPlane replicas: {{ ic.controlPlane.replicas }} NOT EQUALS agent-config master count: {{ ac_master_count }}"
+
+    - name: Verify worker replicas EQUALS count of worker nodes in agent-config
+      ignore_errors: true
+      ansible.builtin.assert:
+        that: ic.compute[0].replicas | int == ac_worker_count | int
+        success_msg: "GOOD! install-config controlPlane replicas: {{ ic.compute[0].replicas }} EQUALS agent-config master count: {{ ac_worker_count }}"
+        fail_msg: "BAD! install-config controlPlane replicas: {{ ic.compute[0].replicas }} EQUALS agent-config master count: {{ ac_worker_count }}"
+
+# netcat api 6443, api-int 6443, apps 443
+# netcat hosts idrac 22 and 80 and maybe 443
+# 
+# nslookup all
+# reverse nslookup
+# Verify worker replicas EQUALS count of nodes in agent-config
+# check additionalNTPSources (netcat and ???)
+# Verify hosts hostname domain is same as install-config
+# Verify dns-resolver works (nc, etc)
+# Verify next-hop-address is all the same
+# ansible ping to nodes in preparation for idrac prep
