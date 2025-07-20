@@ -1,0 +1,56 @@
+---
+iso_server: 10.192.97.252
+iso_image: agent.x86_64.iso
+iso_url: "http://{{ iso_server }}/{{ iso_image }}"
+
+redfish_targets:
+  - name: master01
+    ip: 10.192.98.22
+    type: idrac
+    idrac_user: platformadm
+    idrac_password: c9SeNmK0EnQgihW26e8K6
+  - name: master02
+    ip: 10.192.98.23
+    type: idrac
+    idrac_user: platformadm
+    idrac_password: c9SeNmK0EnQgihW26e8K6
+  - name: master03
+    ip: 10.192.98.24
+    type: idrac
+    idrac_user: platformadm
+    idrac_password: c9SeNmK0EnQgihW26e8K6
+  - name: infra01
+    ip: 10.192.98.19
+    type: idrac
+    idrac_user: platformadm
+    idrac_password: c9SeNmK0EnQgihW26e8K6
+  - name: infra02
+    ip: 10.192.98.20
+    type: idrac
+    idrac_user: platformadm
+    idrac_password: c9SeNmK0EnQgihW26e8K6
+  - name: infra03
+    ip: 10.192.98.21
+    type: idrac
+    idrac_user: platformadm
+    idrac_password: c9SeNmK0EnQgihW26e8K6
+  - name: worker01
+    ip: 10.192.98.25
+    type: idrac
+    idrac_user: platformadm
+    idrac_password: c9SeNmK0EnQgihW26e8K6
+  - name: worker02
+    ip: 10.192.98.26
+    type: idrac
+    idrac_user: platformadm
+    idrac_password: c9SeNmK0EnQgihW26e8K6
+  - name: worker03
+    ip: 10.192.98.27
+    type: idrac
+    idrac_user: platformadm
+    idrac_password: c9SeNmK0EnQgihW26e8K6
+  - name: worker04
+    ip: 10.192.98.28
+    type: idrac
+    idrac_user: platformadm
+    idrac_password: c9SeNmK0EnQgihW26e8K6

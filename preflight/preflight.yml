@@ -5,6 +5,10 @@
 #    - agent-config.yaml
 
   tasks:
+###########################################################  
+# Include variables files
+###########################################################  
+
     - name: Include variables from install-config.yaml
       include_vars:
         file: vars/install-config.yaml
@@ -14,6 +18,15 @@
       include_vars:
         file: vars/agent-config.yaml
         name: ac
+
+    - name: Include variables from servers.yml
+      include_vars:
+        file: vars/idrac.yml
+        name: svr
+
+###########################################################  
+# Check consisitency of openshift installation files
+###########################################################  
 
     - name: Verify cluster name is same in both files
       ansible.builtin.assert:
@@ -62,33 +75,279 @@
       ansible.builtin.set_fact:
         ac_worker_count: "{{ ac.hosts | selectattr('role', 'equalto', 'worker') | list | length }}"
 
-#    - name: Display master and worker counts from agent-config
-#      ignore_errors: true
-#      ansible.builtin.debug:
-#        msg: "Counts from agent-config. Masters: {{ ac_master_count }} Workers: {{ ac_worker_count }}"
-
-    - name: Verify controlPlane replicas EQUALS count of master nodes in agent-config
+    - name: Verify controlPlane replicas equals count of master nodes in agent-config
       ignore_errors: true
       ansible.builtin.assert:
         that: ic.controlPlane.replicas | int == ac_master_count | int
         success_msg: "GOOD! install-config controlPlane replicas: {{ ic.controlPlane.replicas }} EQUALS agent-config master count: {{ ac_master_count }}"
         fail_msg: "BAD! install-config controlPlane replicas: {{ ic.controlPlane.replicas }} NOT EQUALS agent-config master count: {{ ac_master_count }}"
 
-    - name: Verify worker replicas EQUALS count of worker nodes in agent-config
+    - name: Verify worker replicas equals count of worker nodes in agent-config
       ignore_errors: true
       ansible.builtin.assert:
         that: ic.compute[0].replicas | int == ac_worker_count | int
         success_msg: "GOOD! install-config controlPlane replicas: {{ ic.compute[0].replicas }} EQUALS agent-config master count: {{ ac_worker_count }}"
         fail_msg: "BAD! install-config controlPlane replicas: {{ ic.compute[0].replicas }} EQUALS agent-config master count: {{ ac_worker_count }}"
+    - name: Verify hosts hostname domain is same as install-config
+      ignore_errors: true
+      loop: "{{ ac.hosts }}"
+      ansible.builtin.assert:
+        that: item.hostname.split('.', 1)[1] == ic.baseDomain
+        success_msg: "GOOD! The domain in agent-config for: {{ item.hostname }} EQUALS install-config baseDomain: {{ ic.baseDomain }}"
+        fail_msg: "BAD! The domain in agent-config for: {{ item.hostname }} NOT EQUALS install-config baseDomain: {{ ic.baseDomain }}"
 
-# netcat api 6443, api-int 6443, apps 443
+    - name: Set variable for next-hop-address on first host
+      ignore_errors: true
+      ansible.builtin.set_fact:
+        ac_next_hop_address: "{{ ac.hosts[0].networkConfig.routes.config | selectattr('next-hop-interface', 'equalto', 'bond0') | map(attribute='next-hop-address') }}"
+        #ac_next_hop_address: "{{ ac.hosts[0].networkConfig.routes.config}}"
+
+    - name: Display ac_next_hop_address on first host
+      ansible.builtin.debug:
+        msg: "{{ ac_next_hop_address }}"
+
+    - name: Verify next-hop-address is identical for all hosts in agent-config
+      ignore_errors: true
+      ansible.builtin.assert:
+        #that: ac.hosts | selectattr('networkConfig.routes.config.next-hop-address', 'defined') | map(attribute='networkConfig.routes.config.next-hop-address') | unique | length == 1
+        that:
+          - >
+            (ac.hosts |
+              map(attribute='networkConfig.routes.config') |
+              flatten | 
+              selectattr('destination', 'equalto', '0.0.0.0/0') |
+              map(attribute='next-hop-address') |
+              unique |
+              length
+            ) == 1
+        success_msg: "GOOD! "
+        fail_msg: >
+          ERROR: Found inconsistent 'next-hop-address' values for default route (0.0.0.0/0).
+          Expected them to be identical across all hosts.
+          Found values: {{ ac.hosts |
+            map(attribute='networkConfig.routes.config') |
+            flatten |
+            selectattr('destination', 'equalto', '0.0.0.0/0') |
+            map(attribute='next-hop-address') |
+            unique
+          }}
+
+    - name: Set variable for first dns-resolver
+      ansible.builtin.set_fact:
+        ac_dns_resolver: "{{ (ac.hosts | first).networkConfig['dns-resolver'].config.server }}"
+
+    - name: Verify dns-resolver is identical across all hosts in agent-config
+      ignore_errors: true
+      ansible.builtin.assert:
+        that: ac.hosts | selectattr('networkConfig.dns-resolver.config.server', 'defined') | map(attribute='networkConfig.dns-resolver.config.server') | unique | length == 1
+        success_msg: "GOOD! All hosts have the same dns-resolver: {{ ac_dns_resolver }}"
+        fail_msg: "BAD! Not all hosts have the dns-resolver of the first host: {{ ac_dns_resolver }}"
+
+################################################
+# Check name resolution
+###############################################
+
+# API
+    - name: Check name resolution to api
+      changed_when: false
+      ignore_errors: true
+      register: api_dns
+      ansible.builtin.command: "nslookup api.{{ ic.metadata.name }}.{{ic.baseDomain }}"
+
+    - name: Display name resolution to api
+      ignore_errors: true
+      ansible.builtin.debug:
+        var: api_dns
+
+    - name: Assert name resolution to api
+      ignore_errors: true
+      ansible.builtin.assert:
+        that: 
+          - api_dns.rc == 0
+          - "'Name:' in api_dns.stdout or 'Non-authoritative answer' in api_dns.stdout"
+        success_msg: "GOOD! Found Non-authoritative answer in output: {{ api_dns.stdout_lines }}"
+        fail_msg: "BAD!"
+
+# API - reverse DNS lookup
+
+    - name: Determine IP address of API
+      changed_when: false
+      ignore_errors: true
+      register: api_ip
+      ansible.builtin.command: "dig +short api.{{ ic.metadata.name }}.{{ic.baseDomain }}"
+
+    - name: Set IP as variable for API
+      changed_when: false
+      ignore_errors: true
+      ansible.builtin.set_fact:
+        api_resolved_ip: "{{ api_ip.stdout_lines[0] }}"
+
+    - name: Check name resolution to api - reverse DNS lookup
+      changed_when: false
+      ignore_errors: true
+      register: api_dns_reverse
+      ansible.builtin.command: "nslookup {{ api_resolved_ip }}"
+
+    - name: Display name resolution to api - reverse DNS lookup
+      ignore_errors: true
+      ansible.builtin.debug:
+        var: api_dns_reverse
+
+    - name: Assert name resolution to api - reverse DNS lookup
+      ignore_errors: true
+      ansible.builtin.assert:
+        that: 
+          - api_dns_reverse.rc == 0
+          - "'Name:' in api_dns_reverse.stdout or 'Non-authoritative answer' in api_dns_reverse.stdout"
+        success_msg: "GOOD! Found Non-authoritative answer in output: {{ api_dns_reverse.stdout_lines }}"
+        fail_msg: "BAD!"
+
+
+# API-INT
+
+    - name: Check name resolution to api-int
+      changed_when: false
+      ignore_errors: true
+      register: api_int_dns
+      ansible.builtin.command: "nslookup api-int.{{ ic.metadata.name }}.{{ic.baseDomain }}"
+
+    - name: Display name resolution to api-int
+      ignore_errors: true
+      ansible.builtin.debug:
+        var: api_int_dns
+
+    - name: Assert name resolution to api-int
+      ignore_errors: true
+      ansible.builtin.assert:
+        that: 
+          - api_int_dns.rc == 0
+          - "'Name:' in api_int_dns.stdout or 'Non-authoritative answer' in api_int_dns.stdout"
+        success_msg: "GOOD! Found Non-authoritative answer in output: {{ api_int_dns.stdout_lines }}"
+        fail_msg: "BAD!"
+
+# API-INT - reverse DNS lookup
+
+    - name: Determine IP address of API-INT
+      changed_when: false
+      ignore_errors: true
+      register: api_int_ip
+      ansible.builtin.command: "dig +short api-int.{{ ic.metadata.name }}.{{ic.baseDomain }}"
+
+    - name: Set IP as variable for API
+      changed_when: false
+      ignore_errors: true
+      ansible.builtin.set_fact:
+        api_resolved_ip: "{{ api_int_ip.stdout_lines[0] }}"
+
+    - name: Check name resolution to api - reverse DNS lookup
+      changed_when: false
+      ignore_errors: true
+      register: api_int_dns_reverse
+      ansible.builtin.command: "nslookup {{ api_int_resolved_ip }}"
+
+    - name: Display name resolution to api - reverse DNS lookup
+      ignore_errors: true
+      ansible.builtin.debug:
+        var: api_int_dns_reverse
+
+    - name: Assert name resolution to api - reverse DNS lookup
+      ignore_errors: true
+      ansible.builtin.assert:
+        that: 
+          - api_int_dns_reverse.rc == 0
+          - "'Name:' in api_int_dns_reverse.stdout or 'Non-authoritative answer' in api_int_dns_reverse.stdout"
+        success_msg: "GOOD! Found Non-authoritative answer in output: {{ api_int_dns_reverse.stdout_lines }}"
+        fail_msg: "BAD!"
+
+# *.APPS
+
+    - name: Check name resolution to apps
+      changed_when: false
+      ignore_errors: true
+      register: apps_dns
+      ansible.builtin.command: "nslookup hello.apps.{{ ic.metadata.name }}.{{ic.baseDomain }}"
+
+    - name: Display name resolution to apps
+      ignore_errors: true
+      ansible.builtin.debug:
+        var: apps_dns
+
+    - name: Assert name resolution to apps
+      ignore_errors: true
+      ansible.builtin.assert:
+        that: 
+          - apps_dns.rc == 0
+          - "'Name:' in apps_dns.stdout or 'Non-authoritative answer' in apips_dns.stdout"
+        success_msg: "GOOD! Found Non-authoritative answer in output: {{ apps_dns.stdout_lines }}"
+        fail_msg: "BAD!"
+
+################################################
+# Check connectivity to endpoints
+###############################################
+
+# API
+    - name: Check connectivity to api 6443
+      changed_when: false
+      ignore_errors: true
+      register: api_connectivity
+      ansible.builtin.command: "nc -zv api.{{ ic.metadata.name }}.{{ic.baseDomain }} 22"
+      #ansible.builtin.command: "nc -zv api.{{ ic.metadata.name }}.{{ic.baseDomain }} 6443"
+
+    - name: Display connectivity output for api 6443 
+      ignore_errors: true
+      ansible.builtin.debug:
+        var: api_connectivity
+
+    - name: Assert connectivity is good to api 6443
+      ignore_errors: true
+      ansible.builtin.assert:
+        that: "'succeeded' in api_connectivity.stdout or 'open' in api_connectivity.stdout or 'Connected' in api_connectivity.stderr"
+        success_msg: "GOOD! Port is open on api.{{ ic.metadata.name }}.{{ic.baseDomain }} 6443"
+        fail_msg: "BAD! Port is NOT open on api.{{ ic.metadata.name }}.{{ic.baseDomain }} 6443"
+
+# API-INT
+
+    - name: Check connectivity to api-int 6443 # Need to add 22623?
+      changed_when: false
+      ignore_errors: true
+      register: api_int_connectivity
+      ansible.builtin.command: "nc -zv api-int.{{ ic.metadata.name }}.{{ic.baseDomain }} 22"
+      #ansible.builtin.command: "nc -zv api-int.{{ ic.metadata.name }}.{{ic.baseDomain }} 6443"
+
+    - name: Display connectivity output for api-int 6443 
+      ignore_errors: true
+      ansible.builtin.debug:
+        var: api_int_connectivity
+
+    - name: Assert connectivity is good to api-int 6443
+      ignore_errors: true
+      ansible.builtin.assert:
+        that: "'succeeded' in api_int_connectivity.stdout or 'open' in api_int_connectivity.stdout or 'Connected' in api_int_connectivity.stderr"
+        success_msg: "GOOD! Port is open on api-int.{{ ic.metadata.name }}.{{ic.baseDomain }} 6443"
+        fail_msg: "BAD! Port is NOT open on api-int.{{ ic.metadata.name }}.{{ic.baseDomain }} 6443"
+
+# APPS
+
+    - name: Check connectivity to apps 443
+      changed_when: false
+      ignore_errors: true
+      register: apps_connectivity
+      ansible.builtin.command: "nc -zv hello.apps.{{ ic.metadata.name }}.{{ic.baseDomain }} 22"
+      #ansible.builtin.command: "nc -zv hello.apps.{{ ic.metadata.name }}.{{ic.baseDomain }} 443"
+
+    - name: Display connectivity output for apps 443 
+      ignore_errors: true
+      ansible.builtin.debug:
+        var: apps_connectivity
+
+    - name: Assert connectivity is good to apps 443
+      ignore_errors: true
+      ansible.builtin.assert:
+        that: "'succeeded' in apps_connectivity.stdout or 'open' in apps_connectivity.stdout or 'Connected' in apps_connectivity.stderr"
+        success_msg: "GOOD! Port is open on hello.apps.{{ ic.metadata.name }}.{{ic.baseDomain }} 6443"
+        fail_msg: "BAD! Port is NOT open on hello.apps.{{ ic.metadata.name }}.{{ic.baseDomain }} 6443"
+
+
 # netcat hosts idrac 22 and 80 and maybe 443
-# 
-# nslookup all
-# reverse nslookup
-# Verify worker replicas EQUALS count of nodes in agent-config
 # check additionalNTPSources (netcat and ???)
-# Verify hosts hostname domain is same as install-config
 # Verify dns-resolver works (nc, etc)
-# Verify next-hop-address is all the same
-# ansible ping to nodes in preparation for idrac prep

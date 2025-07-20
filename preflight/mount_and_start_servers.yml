@@ -1,0 +1,54 @@
+---
+- hosts: localhost
+  become: false
+  vars_files: vars/idrac.yml
+
+  tasks:
+
+    - name: Power off servers
+      community.general.redfish_command:
+        command: PowerForceOff
+        category: Systems
+        username: "{{ item.idrac_user }}"
+        password: "{{ item.idrac_password }}"
+        baseuri: "{{ item.ip }}"
+      loop: "{{ redfish_targets }}"
+      when: item.type == 'idrac'
+
+    - name: Mount ISO image via iDRAC virtual media
+      dellemc.openmanage.idrac_virtual_media:
+        idrac_ip: "{{ item.ip }}"
+        idrac_user: "{{ item.idrac_user }}"
+        idrac_password: "{{ item.idrac_password }}"
+        validate_certs: false
+        virtual_media:
+         - insert: true
+           image: "{{ iso_url }}"
+        force: true
+      loop: "{{ redfish_targets }}"
+      when: item.type == 'idrac'
+      register: virtual_media_result
+
+    - name: Set one-time boot to CD/DVD
+      dellemc.openmanage.idrac_boot:
+        idrac_ip: "{{ item.ip }}"
+        idrac_user: "{{ item.idrac_user }}"
+        idrac_password: "{{ item.idrac_password }}"
+        boot_source_override_mode: uefi
+        boot_source_override_target: cd
+        boot_source_override_enabled: once
+        validate_certs: no
+      loop: "{{ redfish_targets }}"
+      when: item.type == 'idrac'
+
+
+    - name: Power on server and boot from virtual media
+      community.general.redfish_command:
+        command: PowerOn
+        category: Systems
+        username: "{{ item.idrac_user }}"
+        password: "{{ item.idrac_password }}"
+        baseuri: "{{ item.ip }}"
+      loop: "{{ redfish_targets }}"
+      when: item.type == 'idrac'
+
