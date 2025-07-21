@@ -1,7 +1,7 @@
 ---
 iso_server: 10.192.97.252
 iso_image: agent.x86_64.iso
-iso_url: "http://{{ iso_server }}/{{ iso_image }}"
+#iso_url: "http://{{ iso_server }}/{{ iso_image }}"
 
 redfish_targets:
   - name: master01

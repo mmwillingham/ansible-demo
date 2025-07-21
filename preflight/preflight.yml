@@ -20,9 +20,10 @@
         name: ac
 
     - name: Include variables from servers.yml
+      tags: idrac
       include_vars:
         file: vars/idrac.yml
-        name: svr
+        name: idrac
 
 ###########################################################  
 # Check consisitency of openshift installation files
@@ -285,6 +286,15 @@
 # Check connectivity to endpoints
 ###############################################
 
+# NTP
+# MMW pickup here
+    - name check additionalNTPSources
+      changed_when: false
+      ignore_errors: true
+      register: ntp_connectivity
+      #ansible.builtin.command: "nc -zv {{ ac.additionalNTPSources[0] 22"
+      ansible.builtin.command: "nc -u -zv {{ ac.additionalNTPSources[0] }} 22"
+
 # API
     - name: Check connectivity to api 6443
       changed_when: false
@@ -306,7 +316,6 @@
         fail_msg: "BAD! Port is NOT open on api.{{ ic.metadata.name }}.{{ic.baseDomain }} 6443"
 
 # API-INT
-
     - name: Check connectivity to api-int 6443 # Need to add 22623?
       changed_when: false
       ignore_errors: true
@@ -327,7 +336,6 @@
         fail_msg: "BAD! Port is NOT open on api-int.{{ ic.metadata.name }}.{{ic.baseDomain }} 6443"
 
 # APPS
-
     - name: Check connectivity to apps 443
       changed_when: false
       ignore_errors: true
@@ -347,7 +355,80 @@
         success_msg: "GOOD! Port is open on hello.apps.{{ ic.metadata.name }}.{{ic.baseDomain }} 6443"
         fail_msg: "BAD! Port is NOT open on hello.apps.{{ ic.metadata.name }}.{{ic.baseDomain }} 6443"
 
+# iDRAC
+    - name: Check connectivity to iso_server 80
+      tags: idrac
+      vars:
+        idrac_iso_server: 127.0.0.1 # Used for testing
+      changed_when: false
+      ignore_errors: true
+      register: iso_connectivity
+      #ansible.builtin.command: "nc -zv {{ idrac.iso_server }} 80"
+      ansible.builtin.command: "nc -zv {{ idrac_iso_server }} 22"
 
-# netcat hosts idrac 22 and 80 and maybe 443
-# check additionalNTPSources (netcat and ???)
+    - name: Display connectivity output for iso_server 80 
+      tags: idrac
+      ignore_errors: true
+      ansible.builtin.debug:
+        var: iso_connectivity
+
+    - name: Assert connectivity is good to iso_server 80
+      tags: idrac
+      ignore_errors: true
+      ansible.builtin.assert:
+        that: "'succeeded' in iso_connectivity.stdout or 'open' in iso_connectivity.stdout or 'Connected' in iso_connectivity.stderr"
+        success_msg: "GOOD! Port is open on {{ idrac.iso_server }} 80"
+        fail_msg: "BAD! Port is NOT open on {{ idrac.iso_server }} 80"
+
+    - name: Display iDRAC IP addresses
+      tags: idrac
+      ignore_errors: true
+      loop: "{{ idrac.redfish_targets }}"
+      ansible.builtin.debug:
+        msg: "IP: {{ item['ip'] }}"
+
+    - name: Check connectivity to iDRAC 80
+      tags: idrac
+# This vars block is just for testing
+      vars:
+        test_redfish_targets:
+          - name: master01
+            ip: 127.0.0.1    # 10.192.98.22
+            type: idrac
+            idrac_user: platformadm
+          - name: master02
+            ip: 127.0.0.1 # 10.192.98.23
+            type: idrac
+            idrac_user: platformadm
+      #loop: "{{ idrac.redfish_targets }}"
+      loop: "{{ test_redfish_targets }}"
+      changed_when: false
+      ignore_errors: true
+      register: idrac_connectivity
+      ansible.builtin.command: "nc -zv {{ item.ip }} 22"
+
+    - name: Display netcat results
+      ignore_errors: true
+      tags: idrac
+      ansible.builtin.debug:
+        msg: "{{ idrac_connectivity.results }}"
+
+#    - name: Assert iDRAC server IPs are all accessible
+#      tags: idrac
+#      ignore_errors: true
+#      ansible.builtin.assert:
+#        that:
+#          - idrac_connectivity.results | map(attribute='rc') | select('equalto', 0) | list | length == idrac_connectivity | length
+#        success_msg: "GOOD! All iDRAC server IPs are accessible."
+#        fail_msg: "BAD! Some IPs are not accessible. {{ idrac_connectivity.results }}"
+      
+    - name: Display failed IPs
+      tags: idrac
+      ignore_errors: true
+      loop: "{{ idrac_connectivity.results }}"
+      when: item.rc !=0
+      ansible.builtin.debug:
+        msg: "Failed to connect to these IPs: {{ item.item }}"
+
+
 # Verify dns-resolver works (nc, etc)
